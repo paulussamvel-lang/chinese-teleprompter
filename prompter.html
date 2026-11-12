@@ -3,446 +3,154 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>口播提词器</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="大字提词器">
+<title>大字提词器</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { background: #0a0a0a; color: #fff; font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
-  #topbar { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 10px 20px; background: #141414; border-bottom: 1px solid #222; flex-shrink: 0; }
-  #topbar .title { font-size: 15px; color: #888; margin-right: auto; }
-  .btn { padding: 8px 18px; border: none; border-radius: 8px; font-size: 14px; cursor: pointer; transition: all .15s; }
-  .btn-primary { background: #2563eb; color: #fff; }
-  .btn-primary:hover { background: #1d4ed8; }
-  .btn-danger { background: #dc2626; color: #fff; }
-  .btn-danger:hover { background: #b91c1c; }
-  .btn-ghost { background: transparent; color: #888; border: 1px solid #333; }
-  .btn-ghost:hover { color: #fff; border-color: #555; }
-  #status { font-size: 13px; color: #999; min-width: 80px; text-align: center; }
-  #status.listening { color: #22c55e; }
-  #status.error { color: #ef4444; }
-  #timer-controls { display: flex; align-items: center; gap: 10px; color: #aaa; font-size: 14px; }
-  #timer-controls label { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
-  #timer-toggle { accent-color: #3b82f6; }
-  #timer-seconds {
-    width: 5.5em;
-    padding: 6px 8px;
+  body {
+    height: 100vh;
+    height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    background: #0a0a0a;
+    color: #fff;
+    font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+  }
+  #topbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 20px;
+    background: #141414;
+    border-bottom: 1px solid #333;
+    flex-shrink: 0;
+  }
+  #topbar .title { margin-right: auto; font-size: 16px; color: #aaa; }
+  .btn {
+    min-height: 44px;
+    padding: 8px 18px;
     border: 1px solid #555;
-    border-radius: 6px;
+    border-radius: 8px;
+    background: transparent;
+    color: #ccc;
+    font: inherit;
+    font-size: 14px;
+    cursor: pointer;
+  }
+  .btn:hover { color: #fff; border-color: #888; }
+  .btn-primary { background: #2563eb; border-color: #2563eb; color: #fff; }
+  .btn-primary:hover { background: #1d4ed8; border-color: #1d4ed8; }
+  :focus-visible { outline: 2px solid #60a5fa; outline-offset: 3px; }
+  [hidden] { display: none !important; }
+  #editor-panel {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+    padding: 20px;
+    gap: 12px;
+  }
+  #editor-panel label { font-size: 16px; color: #aaa; line-height: 1.5; }
+  #script-input {
+    flex: 1;
+    min-height: 0;
+    padding: 16px;
+    border: 1px solid #555;
+    border-radius: 10px;
     background: #1a1a1a;
     color: #fff;
     font: inherit;
-    color-scheme: dark;
+    font-size: 18px;
+    line-height: 1.8;
+    resize: none;
   }
-  #timer-seconds[aria-invalid="true"] { border-color: #ef4444; }
-  #editor-panel { display: none; flex-direction: column; flex: 1; min-height: 0; padding: 20px; gap: 12px; }
-  #editor-panel.active { display: flex; }
-  #editor-panel label { font-size: 14px; color: #888; }
-  #script-input { flex: 1; min-height: 0; background: #1a1a1a; border: 1px solid #333; border-radius: 10px; color: #fff; font-size: 16px; line-height: 1.8; padding: 16px; resize: none; font-family: inherit; }
-  #script-input:focus { outline: none; border-color: #3b82f6; }
+  #script-input::placeholder { color: #999; }
   #editor-actions { display: flex; gap: 10px; }
-  #sentence-count { font-size: 13px; color: #666; }
   #prompt-panel {
-    display: none;
     flex: 1;
     min-height: 0;
-    position: relative;
-    container-type: size;
     overflow-y: auto;
     overflow-anchor: none;
-    padding-inline: 20px;
+    overscroll-behavior-y: contain;
+    touch-action: pan-y pinch-zoom;
+    padding: 28px 24px 48px;
   }
-  #prompt-panel.active { display: block; }
-  #prompt-panel::before, #prompt-panel::after {
-    content: "";
-    display: block;
-    height: 50cqh;
-  }
-  .line {
+  #script-display {
     max-width: 1100px;
     margin-inline: auto;
-    padding-block: .17em;
-    text-align: center;
-    font-size: clamp(1.5rem, 4.4vw, 3rem);
-    font-weight: 700;
-    line-height: 1.35;
-    line-break: strict;
+    white-space: pre-wrap;
     overflow-wrap: anywhere;
-    text-wrap: balance;
-    color: #777;
-    transition: color .2s ease;
+    line-break: strict;
+    font-size: 48px;
+    font-weight: 600;
+    line-height: 1.65;
   }
-  .line.current { color: #fff; }
-  #bottombar {
-    display: none;
-    flex-shrink: 0;
-    align-items: center;
-    justify-content: center;
-    gap: 16px;
-    padding: 12px 20px;
-    background: #141414;
-    border-top: 1px solid #222;
-    z-index: 50;
-  }
-  #bottombar.active { display: flex; }
-  #progress-text { font-size: 14px; color: #999; font-variant-numeric: tabular-nums; }
-  #progress-bar-wrap { flex: 1; max-width: 400px; height: 4px; background: #222; border-radius: 2px; overflow: hidden; }
-  #progress-bar { height: 100%; background: #3b82f6; border-radius: 2px; transition: width .3s; }
-  .nav-btn { background: transparent; border: 1px solid #333; color: #888; padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: 13px; }
-  .nav-btn:hover { color: #fff; border-color: #555; }
-  #voice-indicator { display: none; align-items: center; gap: 4px; }
-  #voice-indicator.active { display: flex; }
-  .wave-bar { width: 3px; background: #22c55e; border-radius: 2px; animation: wave 1s ease-in-out infinite; }
-  .wave-bar:nth-child(1) { height: 8px; animation-delay: 0s; }
-  .wave-bar:nth-child(2) { height: 14px; animation-delay: .15s; }
-  .wave-bar:nth-child(3) { height: 10px; animation-delay: .3s; }
-  .wave-bar:nth-child(4) { height: 16px; animation-delay: .45s; }
-  .wave-bar:nth-child(5) { height: 8px; animation-delay: .6s; }
-  @keyframes wave { 0%, 100% { transform: scaleY(1); } 50% { transform: scaleY(1.8); } }
-  #toast { position: fixed; top: 60px; left: 50%; transform: translateX(-50%); background: #1e293b; color: #fff; padding: 10px 24px; border-radius: 8px; font-size: 14px; opacity: 0; transition: opacity .3s; pointer-events: none; z-index: 100; }
-  #toast.show { opacity: 1; }
   @media (max-width: 560px) {
-    #topbar, #bottombar { gap: 8px; padding: 8px 12px; }
-    #topbar .title { flex-basis: 100%; }
-    #status { min-width: 0; margin-right: auto; }
-    #topbar .btn { padding-inline: 8px; }
-    #timer-controls { flex-basis: 100%; }
-    #bottombar .keyboard-hint { display: none; }
-  }
-  @media (prefers-reduced-motion: reduce) {
-    .line, #progress-bar { transition: none; }
+    #topbar { padding: 8px 12px; gap: 8px; }
+    #editor-panel { padding: 12px; }
+    #prompt-panel { padding: 20px 16px 32px; }
+    #script-display { font-size: 32px; }
   }
 </style>
 </head>
 <body>
-<div id="toast"></div>
 <div id="topbar">
-  <span class="title">🎬 口播提词器</span>
-  <div id="voice-indicator">
-    <div class="wave-bar"></div><div class="wave-bar"></div><div class="wave-bar"></div><div class="wave-bar"></div><div class="wave-bar"></div>
-  </div>
-  <span id="status">就绪</span>
-  <button class="btn btn-ghost" id="btn-voice" onclick="toggleVoice()" style="border-color:#22c55e;color:#999;font-size:12px">🎤 语音关</button>
-  <button class="btn btn-ghost" id="btn-edit" onclick="showEditor()">✏️ 编辑文稿</button>
-  <button class="btn btn-primary" id="btn-start" onclick="startPrompting()">▶ 开始提词</button>
-  <button class="btn btn-danger" id="btn-stop" onclick="stopPrompting()" style="display:none">■ 停止</button>
-  <div id="timer-controls">
-    <label><input type="checkbox" id="timer-toggle"> 定时翻行</label>
-    <label>每 <input id="timer-seconds" aria-label="翻行间隔（秒）" type="number" min="0.5" max="3600" step="any" value="3" required> 秒</label>
-  </div>
+  <span class="title">大字提词器</span>
+  <button class="btn" id="btn-edit" type="button" onclick="showEditor()" hidden>编辑文稿</button>
+  <button class="btn btn-primary" id="btn-start" type="submit" form="editor-panel">放大阅读</button>
 </div>
-<div id="editor-panel">
-  <label for="script-input">粘贴口播文稿，自动按句子和词组断行</label>
-  <textarea id="script-input" placeholder="在这里粘贴你的口播内容..."></textarea>
+<form id="editor-panel">
+  <label for="script-input">粘贴文稿，放大后用手指上下拖动阅读。</label>
+  <textarea id="script-input" placeholder="在这里粘贴文稿…" required></textarea>
   <div id="editor-actions">
-    <button class="btn btn-primary" onclick="startPrompting()">▶ 开始提词</button>
-    <button class="btn btn-ghost" onclick="hideEditor()">取消</button>
-    <span id="sentence-count"></span>
+    <button class="btn" id="btn-cancel" type="button" onclick="hideEditor()" hidden>返回阅读</button>
   </div>
-</div>
-<div id="prompt-panel"></div>
-<div id="bottombar">
-  <button class="nav-btn" onclick="prevLine()" aria-keyshortcuts="ArrowUp ArrowLeft" title="↑ 或 ← 切到上一行">↑ 上一行</button>
-  <span id="progress-text">0 / 0</span>
-  <div id="progress-bar-wrap"><div id="progress-bar"></div></div>
-  <button class="nav-btn" onclick="nextLine()" aria-keyshortcuts="ArrowDown ArrowRight Space" title="↓、→ 或空格切到下一行">下一行 ↓</button>
-  <span class="keyboard-hint" style="font-size:13px;color:#22c55e;margin-left:8px">↑ 上一行 · ↓ / 空格 下一行</span>
-</div>
+</form>
+<main id="prompt-panel" aria-label="大字文稿" tabindex="0" hidden>
+  <div id="script-display"></div>
+</main>
 <script>
-let allLines = [];
-let currentLineIndex = 0;
-let isPrompting = false;
-let voiceToggleOn = false;
-let recognition = null;
-let autoAdvanceTimer;
-const timerToggle = document.getElementById('timer-toggle');
-const timerSeconds = document.getElementById('timer-seconds');
+const editorPanel = document.getElementById('editor-panel');
 const promptPanel = document.getElementById('prompt-panel');
-const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
-const sentenceSegmenter = new Intl.Segmenter('zh', { granularity: 'sentence' });
-const wordSegmenter = new Intl.Segmenter('zh', { granularity: 'word' });
-let panelWidth = 0;
-let panelHeight = 0;
-
-function toast(msg) {
-  const t = document.getElementById('toast');
-  t.textContent = msg;
-  t.classList.add('show');
-  setTimeout(() => t.classList.remove('show'), 2500);
-}
-
-function setStatus(text, cls) {
-  const s = document.getElementById('status');
-  s.textContent = text;
-  s.className = cls || '';
-}
-
-function parseScript(raw) {
-  const result = [];
-  for (const paragraph of raw.split(/\r\n?|\n/)) {
-    for (const { segment } of sentenceSegmenter.segment(paragraph.trim())) {
-      result.push(...splitLongSentence(segment.trim()));
-    }
-  }
-  return result;
-}
-
-function splitLongSentence(sentence) {
-  const maxLength = 24;
-  if (sentence.length <= maxLength) return [sentence];
-
-  const breaks = [];
-  let previous = '';
-  for (const { index, segment } of wordSegmenter.segment(sentence)) {
-    if (!segment.trim()) continue;
-    const before = previous;
-    previous = segment;
-    if (!before || /^[\p{Pe}\p{Pf}，、。！？；：,.!?;:%…]/u.test(segment)) continue;
-    if (/[\p{Ps}\p{Pi}]$/u.test(before)) continue;
-    if (/\d[,.]$/u.test(before) && /^\d/u.test(segment)) continue;
-    breaks.push({ index, pause: /[，、；：,;:]$/u.test(before) });
-  }
-
-  const lines = [];
-  let start = 0;
-  let candidate = 0;
-  while (sentence.length - start > maxLength && candidate < breaks.length) {
-    // Prefer a natural pause, with enough text left for the next line.
-    const limit = Math.min(start + maxLength, sentence.length - 8);
-    let last = null;
-    let pause = null;
-    while (candidate < breaks.length && breaks[candidate].index <= limit) {
-      last = breaks[candidate++];
-      if (last.pause && last.index - start >= 10) pause = last;
-    }
-    const end = (pause || last || breaks[candidate++]).index;
-    lines.push(sentence.slice(start, end).trim());
-    start = end;
-    // Revisit word boundaries after a preferred pause.
-    while (candidate > 0 && breaks[candidate - 1].index > start) candidate--;
-  }
-  lines.push(sentence.slice(start).trim());
-  return lines;
-}
+const scriptInput = document.getElementById('script-input');
+const scriptDisplay = document.getElementById('script-display');
+const startButton = document.getElementById('btn-start');
+const editButton = document.getElementById('btn-edit');
+const cancelButton = document.getElementById('btn-cancel');
+let readingPosition = 0;
 
 function showEditor() {
-  if (isPrompting) stopPrompting();
-  document.getElementById('editor-panel').classList.add('active');
-  promptPanel.classList.remove('active');
-  document.getElementById('bottombar').classList.remove('active');
-  document.getElementById('btn-start').style.display = '';
-  document.getElementById('btn-stop').style.display = 'none';
+  readingPosition = promptPanel.scrollTop;
+  promptPanel.hidden = true;
+  editorPanel.hidden = false;
+  startButton.hidden = false;
+  editButton.hidden = true;
+  cancelButton.hidden = !scriptDisplay.textContent;
 }
 
 function hideEditor() {
-  document.getElementById('editor-panel').classList.remove('active');
+  if (!scriptDisplay.textContent) return;
+  editorPanel.hidden = true;
+  promptPanel.hidden = false;
+  startButton.hidden = true;
+  editButton.hidden = false;
+  promptPanel.scrollTop = readingPosition;
+  promptPanel.focus({ preventScroll: true });
 }
 
-function centerCurrentLine(animate = false) {
-  const line = promptPanel.children[currentLineIndex];
-  if (!line || !promptPanel.clientHeight) return;
-  panelWidth = promptPanel.clientWidth;
-  panelHeight = promptPanel.clientHeight;
-  promptPanel.scrollTo({
-    top: line.offsetTop + (line.offsetHeight - panelHeight) / 2,
-    behavior: animate && !reducedMotion.matches ? 'smooth' : 'instant'
-  });
-}
-
-function render(animate = true) {
-  const total = allLines.length;
-  promptPanel.querySelector('.current')?.classList.remove('current');
-  promptPanel.children[currentLineIndex].classList.add('current');
-  centerCurrentLine(animate);
-  document.getElementById('progress-text').textContent = (currentLineIndex + 1) + ' / ' + total;
-  document.getElementById('progress-bar').style.width = ((currentLineIndex + 1) / total * 100) + '%';
-}
-
-function nextLine() {
-  if (currentLineIndex + 1 < allLines.length) {
-    currentLineIndex++;
-    render();
-    restartAutoAdvance();
-  } else {
-    toast('🎉 全部完成！');
-    stopPrompting();
-  }
-}
-
-function prevLine() {
-  if (currentLineIndex > 0) {
-    currentLineIndex--;
-    render();
-    restartAutoAdvance();
-  }
-}
-
-function restartAutoAdvance() {
-  clearTimeout(autoAdvanceTimer);
-  const enabled = timerToggle.checked;
-  const valid = timerSeconds.validity.valid;
-  timerSeconds.setAttribute('aria-invalid', String(enabled && !valid));
-  if (!isPrompting || !enabled) return;
-  if (!valid) {
-    setStatus('请输入 0.5–3600 秒', 'error');
+editorPanel.addEventListener('submit', (event) => {
+  event.preventDefault();
+  if (!scriptInput.value.trim()) {
+    scriptInput.focus();
     return;
   }
-  setStatus('定时翻行中');
-  autoAdvanceTimer = setTimeout(nextLine, timerSeconds.valueAsNumber * 1000);
-}
-
-function updateVoiceButton() {
-  const btn = document.getElementById('btn-voice');
-  btn.textContent = voiceToggleOn ? '🎤 语音开' : '🎤 语音关';
-  btn.style.color = voiceToggleOn ? '#22c55e' : '#999';
-}
-
-function toggleVoice() {
-  voiceToggleOn = !voiceToggleOn;
-  if (voiceToggleOn) timerToggle.checked = false;
-  updateVoiceButton();
-  updateAdvanceMode();
-  toast(voiceToggleOn ? '语音识别：已开' : '语音识别：已关');
-}
-
-function initRecognition() {
-  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if (!SpeechRecognition) {
-    toast('浏览器不支持语音识别，请用 Chrome');
-    return null;
-  }
-  const rec = new SpeechRecognition();
-  rec.lang = 'zh-CN';
-  rec.continuous = true;
-  rec.interimResults = true;
-  rec.maxAlternatives = 1;
-
-  rec.onresult = (event) => {
-    if (recognition !== rec) return;
-    let transcript = '';
-    for (let i = event.resultIndex; i < event.results.length; i++) {
-      transcript += event.results[i][0].transcript;
-    }
-    transcript = transcript.trim();
-    if (!transcript) return;
-    const target = allLines[currentLineIndex];
-    if (!target) return;
-    const overlap = calcOverlap(transcript, target);
-    if (overlap > 0.6 && currentLineIndex < allLines.length - 1) {
-      nextLine();
-    }
-  };
-
-  rec.onerror = (e) => {
-    if (recognition !== rec || e.error === 'no-speech') return;
-    setStatus('语音错误', 'error');
-  };
-
-  rec.onend = () => {
-    if (recognition === rec) {
-      try { rec.start(); } catch(e) {}
-    }
-  };
-
-  return rec;
-}
-
-function stopVoiceRecognition() {
-  const rec = recognition;
-  recognition = null;
-  if (rec) {
-    try { rec.stop(); } catch(e) {}
-  }
-  document.getElementById('voice-indicator').classList.remove('active');
-}
-
-function updateAdvanceMode() {
-  restartAutoAdvance();
-  if (!isPrompting) return;
-  if (timerToggle.checked || !voiceToggleOn) {
-    stopVoiceRecognition();
-    if (!timerToggle.checked) setStatus('手动模式');
-    return;
-  }
-
-  recognition = initRecognition();
-  if (recognition) {
-    try {
-      recognition.start();
-      setStatus('🎤 语音监听中', 'listening');
-      document.getElementById('voice-indicator').classList.add('active');
-      return;
-    } catch(e) { stopVoiceRecognition(); }
-  }
-  setStatus('手动模式');
-}
-
-function calcOverlap(a, b) {
-  if (!a || !b) return 0;
-  const aSet = new Set(a.replace(/\s/g, ''));
-  const bSet = new Set(b.replace(/\s/g, ''));
-  let common = 0;
-  for (const ch of bSet) { if (aSet.has(ch)) common++; }
-  return common / bSet.size;
-}
-
-function startPrompting() {
-  const raw = document.getElementById('script-input').value.trim();
-  if (!raw) { toast('请先粘贴文稿'); return; }
-  allLines = parseScript(raw);
-  const lines = document.createDocumentFragment();
-  for (const text of allLines) {
-    const line = document.createElement('div');
-    line.className = 'line';
-    line.textContent = text;
-    lines.append(line);
-  }
-  promptPanel.replaceChildren(lines);
-  document.getElementById('sentence-count').textContent = '共 ' + allLines.length + ' 行';
-  isPrompting = true;
-  currentLineIndex = 0;
-
-  promptPanel.classList.add('active');
-  document.getElementById('bottombar').classList.add('active');
-  document.getElementById('btn-start').style.display = 'none';
-  document.getElementById('btn-stop').style.display = '';
-  document.getElementById('editor-panel').classList.remove('active');
-  render(false);
-  updateAdvanceMode();
-}
-
-function stopPrompting() {
-  isPrompting = false;
-  clearTimeout(autoAdvanceTimer);
-  stopVoiceRecognition();
-  setStatus('已停止');
-  document.getElementById('btn-start').style.display = '';
-  document.getElementById('btn-stop').style.display = 'none';
-}
-
-document.addEventListener('keydown', (e) => {
-  if (!allLines.length || !promptPanel.classList.contains('active')) return;
-  if (e.key === 'Escape') { stopPrompting(); return; }
-  if (e.altKey || e.ctrlKey || e.metaKey || e.isComposing) return;
-  if (e.target.matches('input:not([type="checkbox"]), textarea, select, [contenteditable]')) return;
-  if (e.key === ' ' && e.target.matches('input[type="checkbox"]')) return;
-  if (e.key === 'ArrowDown' || e.key === 'ArrowRight' || e.key === ' ') { e.preventDefault(); nextLine(); }
-  if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') { e.preventDefault(); prevLine(); }
+  scriptDisplay.textContent = scriptInput.value;
+  readingPosition = 0;
+  hideEditor();
 });
-
-timerToggle.addEventListener('change', () => {
-  if (timerToggle.checked) {
-    voiceToggleOn = false;
-    updateVoiceButton();
-  }
-  updateAdvanceMode();
-});
-timerSeconds.addEventListener('input', restartAutoAdvance);
-
-new ResizeObserver(() => {
-  // The initial notification can arrive after a flip has already started.
-  if (panelWidth !== promptPanel.clientWidth || panelHeight !== promptPanel.clientHeight) {
-    centerCurrentLine();
-  }
-}).observe(promptPanel);
 </script>
 </body>
 </html>
