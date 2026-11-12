@@ -79,7 +79,7 @@
     padding: 28px 24px 48px;
   }
   #script-display {
-    max-width: 1100px;
+    max-width: 12em;
     margin-inline: auto;
     white-space: pre-wrap;
     overflow-wrap: anywhere;
@@ -92,7 +92,7 @@
     #topbar { padding: 8px 12px; gap: 8px; }
     #editor-panel { padding: 12px; }
     #prompt-panel { padding: 20px 16px 32px; }
-    #script-display { font-size: 32px; }
+    #script-display { font-size: min(32px, calc((100vw - 32px) / 12)); }
   }
 </style>
 </head>
@@ -103,7 +103,7 @@
   <button class="btn btn-primary" id="btn-start" type="submit" form="editor-panel">放大阅读</button>
 </div>
 <form id="editor-panel">
-  <label for="script-input">粘贴文稿，放大后用手指上下拖动阅读。</label>
+  <label for="script-input">粘贴文稿，每行 10 个字，行末标点跟随上一行。上下拖动阅读。</label>
   <textarea id="script-input" placeholder="在这里粘贴文稿…" required></textarea>
   <div id="editor-actions">
     <button class="btn" id="btn-cancel" type="button" onclick="hideEditor()" hidden>返回阅读</button>
@@ -121,6 +121,28 @@ const startButton = document.getElementById('btn-start');
 const editButton = document.getElementById('btn-edit');
 const cancelButton = document.getElementById('btn-cancel');
 let readingPosition = 0;
+const characterSegmenter = typeof Intl.Segmenter === 'function'
+  ? new Intl.Segmenter('zh', { granularity: 'grapheme' })
+  : null;
+const closingPunctuation = /^[\p{Pe}\p{Pf}，。！？；：、,.!?;:…%％‰]$/u;
+
+function wrapScript(raw) {
+  return raw.split(/\r\n?|\n/).map(paragraph => {
+    const characters = characterSegmenter
+      ? Array.from(characterSegmenter.segment(paragraph), item => item.segment)
+      : Array.from(paragraph);
+    const lines = [];
+    let start = 0;
+    while (start < characters.length) {
+      let end = Math.min(start + 10, characters.length);
+      // Keep closing punctuation with the text before it, including at the end.
+      while (end < characters.length && closingPunctuation.test(characters[end])) end++;
+      lines.push(characters.slice(start, end).join(''));
+      start = end;
+    }
+    return lines.join('\n');
+  }).join('\n');
+}
 
 function showEditor() {
   readingPosition = promptPanel.scrollTop;
@@ -147,7 +169,7 @@ editorPanel.addEventListener('submit', (event) => {
     scriptInput.focus();
     return;
   }
-  scriptDisplay.textContent = scriptInput.value;
+  scriptDisplay.textContent = wrapScript(scriptInput.value);
   readingPosition = 0;
   hideEditor();
 });
