@@ -140,11 +140,11 @@
 </div>
 <div id="prompt-panel"></div>
 <div id="bottombar">
-  <button class="nav-btn" onclick="prevLine()">◀ 上一行</button>
+  <button class="nav-btn" onclick="prevLine()" aria-keyshortcuts="ArrowUp ArrowLeft" title="↑ 或 ← 切到上一行">↑ 上一行</button>
   <span id="progress-text">0 / 0</span>
   <div id="progress-bar-wrap"><div id="progress-bar"></div></div>
-  <button class="nav-btn" onclick="nextLine()">下一行 ▶</button>
-  <span class="keyboard-hint" style="font-size:13px;color:#22c55e;margin-left:8px">空格=下一行</span>
+  <button class="nav-btn" onclick="nextLine()" aria-keyshortcuts="ArrowDown ArrowRight Space" title="↓、→ 或空格切到下一行">下一行 ↓</button>
+  <span class="keyboard-hint" style="font-size:13px;color:#22c55e;margin-left:8px">↑ 上一行 · ↓ / 空格 下一行</span>
 </div>
 <script>
 let allLines = [];
@@ -419,9 +419,11 @@ function stopPrompting() {
 }
 
 document.addEventListener('keydown', (e) => {
-  if (!isPrompting) return;
+  if (!allLines.length || !promptPanel.classList.contains('active')) return;
   if (e.key === 'Escape') { stopPrompting(); return; }
-  if (e.target.matches('input, textarea')) return;
+  if (e.altKey || e.ctrlKey || e.metaKey || e.isComposing) return;
+  if (e.target.matches('input:not([type="checkbox"]), textarea, select, [contenteditable]')) return;
+  if (e.key === ' ' && e.target.matches('input[type="checkbox"]')) return;
   if (e.key === 'ArrowDown' || e.key === 'ArrowRight' || e.key === ' ') { e.preventDefault(); nextLine(); }
   if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') { e.preventDefault(); prevLine(); }
 });
