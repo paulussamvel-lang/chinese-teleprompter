@@ -103,7 +103,7 @@
   <button class="btn btn-primary" id="btn-start" type="submit" form="editor-panel">放大阅读</button>
 </div>
 <form id="editor-panel">
-  <label for="script-input">粘贴文稿，每行 10 个字，行末标点跟随上一行。上下拖动阅读。</label>
+  <label for="script-input">粘贴文稿，按标点一句一行，超过 10 个字再切分。上下拖动阅读。</label>
   <textarea id="script-input" placeholder="在这里粘贴文稿…" required></textarea>
   <div id="editor-actions">
     <button class="btn" id="btn-cancel" type="button" onclick="hideEditor()" hidden>返回阅读</button>
@@ -124,24 +124,41 @@ let readingPosition = 0;
 const characterSegmenter = typeof Intl.Segmenter === 'function'
   ? new Intl.Segmenter('zh', { granularity: 'grapheme' })
   : null;
-const closingPunctuation = /^[\p{Pe}\p{Pf}，。！？；：、,.!?;:…%％‰]$/u;
+const closingPunctuation = /^[\p{Pe}\p{Pf}，。！？；：、,.!?;:…%％‰—\-"']$/u;
+const sentencePunctuation = /(?:--+|—+|…+|[，。；！？：、,.!?;:])+[\p{Pe}\p{Pf}"']*/gu;
 
 function wrapScript(raw) {
   return raw.split(/\r\n?|\n/).map(paragraph => {
-    const characters = characterSegmenter
-      ? Array.from(characterSegmenter.segment(paragraph), item => item.segment)
-      : Array.from(paragraph);
-    const lines = [];
+    const sentences = [];
     let start = 0;
-    while (start < characters.length) {
-      let end = Math.min(start + 10, characters.length);
-      // Keep closing punctuation with the text before it, including at the end.
-      while (end < characters.length && closingPunctuation.test(characters[end])) end++;
-      lines.push(characters.slice(start, end).join(''));
+    for (const match of paragraph.matchAll(sentencePunctuation)) {
+      // Decimal points and time separators stay inside their numbers.
+      if (/^[.:]$/.test(match[0])
+        && /\d/.test(paragraph[match.index - 1] || '')
+        && /\d/.test(paragraph[match.index + 1] || '')) continue;
+      const end = match.index + match[0].length;
+      sentences.push(paragraph.slice(start, end));
       start = end;
     }
-    return lines.join('\n');
+    sentences.push(paragraph.slice(start));
+    return sentences.filter(sentence => sentence.trim()).flatMap(wrapSentence).join('\n');
   }).join('\n');
+}
+
+function wrapSentence(sentence) {
+  const characters = characterSegmenter
+    ? Array.from(characterSegmenter.segment(sentence), item => item.segment)
+    : Array.from(sentence);
+  const lines = [];
+  let start = 0;
+  while (start < characters.length) {
+    let end = Math.min(start + 10, characters.length);
+    // Keep closing punctuation with the text before it, including at the end.
+    while (end < characters.length && closingPunctuation.test(characters[end])) end++;
+    lines.push(characters.slice(start, end).join(''));
+    start = end;
+  }
+  return lines;
 }
 
 function showEditor() {
